@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ryan Schatz | Code, Beats, Tools</title>
+    <meta name="description" content="Ryan Schatz builds software tools, music systems, and beat archives.">
+    <meta name="theme-color" content="#05070a">
+    <meta property="og:title" content="Ryan Schatz">
+    <meta property="og:description" content="Code, beats, and small tools built to ship.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="/assets/img/hero-studio.png">
+    <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
+    <link rel="preload" href="/assets/img/hero-studio.png" as="image">
+    <link rel="stylesheet" href="/assets/css/styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header" data-header>
+      <a class="brand" href="/" aria-label="Ryan Schatz home">
+        <span class="brand-mark">RS</span>
+        <span class="brand-name">ryanschatz.net</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="#music">Music</a>
+        <a href="#code">Code</a>
+        <a href="/sts2">STS2</a>
+        <a data-github-link href="https://github.com/" rel="noreferrer">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero section-band" aria-labelledby="hero-title">
+        <img class="hero-image" src="/assets/img/hero-studio.png" alt="" aria-hidden="true">
+        <canvas class="hero-canvas" id="signalCanvas" aria-hidden="true"></canvas>
+        <div class="hero-shade" aria-hidden="true"></div>
+        <div class="hero-content reveal is-visible">
+          <p class="kicker">software / sound / systems</p>
+          <h1 id="hero-title" data-site-name>Ryan Schatz</h1>
+          <p class="hero-copy" data-site-intro>Code, beats, and small tools built to ship.</p>
+          <div class="hero-actions" aria-label="Featured links">
+            <a class="button primary" href="/sts2">Open STS2</a>
+            <a class="button ghost" href="#music">Play music</a>
+            <a class="button ghost" data-github-link href="https://github.com/" rel="noreferrer">GitHub</a>
+          </div>
+        </div>
+        <div class="hero-strip" aria-label="Highlights">
+          <div>
+            <span data-music-total>1000+</span>
+            <small>beats ready</small>
+          </div>
+          <div>
+            <span>live</span>
+            <small>repo preview</small>
+          </div>
+          <div>
+            <span>/sts2</span>
+            <small>tool online</small>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-band surface-section" aria-labelledby="surface-title">
+        <div class="section-inner">
+          <div class="section-heading reveal">
+            <p class="kicker">current surface</p>
+            <h2 id="surface-title">A compact launchpad.</h2>
+          </div>
+          <div class="surface-grid">
+            <a class="surface-card reveal" href="/sts2">
+              <span class="surface-label">Tool</span>
+              <strong>Slay the Spire 2</strong>
+              <span class="surface-visual relic-grid" aria-hidden="true">
+                <i></i><i></i><i></i><i></i><i></i><i></i>
+              </span>
+            </a>
+            <a class="surface-card reveal" href="#music">
+              <span class="surface-label">Archive</span>
+              <strong>Beat library</strong>
+              <span class="surface-visual mini-wave" aria-hidden="true">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              </span>
+            </a>
+            <a class="surface-card reveal" href="#code">
+              <span class="surface-label">Code</span>
+              <strong>Latest repo</strong>
+              <span class="surface-visual code-lines" aria-hidden="true">
+                <i></i><i></i><i></i><i></i><i></i>
+              </span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-band music-section" id="music" aria-labelledby="music-title">
+        <div class="section-inner split-layout">
+          <div class="section-heading sticky-copy reveal">
+            <p class="kicker">music</p>
+            <h2 id="music-title">The beat archive.</h2>
+            <p class="quiet">Search, filter, and stream the catalog as it grows.</p>
+            <div class="music-stats" aria-label="Music archive stats">
+              <div>
+                <span data-music-count>0</span>
+                <small>tracks</small>
+              </div>
+              <div>
+                <span data-bpm-range>--</span>
+                <small>bpm range</small>
+              </div>
+            </div>
+            <div class="genre-chart" data-genre-chart aria-label="Genre distribution"></div>
+          </div>
+
+          <div class="music-browser reveal">
+            <div class="music-toolbar">
+              <label class="search-box">
+                <span>Search beats</span>
+                <input type="search" id="trackSearch" placeholder="Search title, mood, genre">
+              </label>
+              <div class="filter-row" data-filter-row aria-label="Music filters"></div>
+            </div>
+
+            <div class="player" data-player hidden>
+              <div>
+                <span class="player-label">Now playing</span>
+                <strong data-player-title>Nothing loaded</strong>
+              </div>
+              <audio data-audio preload="metadata"></audio>
+              <div class="progress" aria-hidden="true"><i data-progress></i></div>
+            </div>
+
+            <div class="track-grid" data-track-grid></div>
+            <button class="button load-more" data-load-more type="button" hidden>Load more</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-band code-section" id="code" aria-labelledby="code-title">
+        <div class="section-inner code-layout">
+          <div class="repo-preview reveal" data-repo-preview>
+            <div class="repo-topline">
+              <span class="repo-source">GitHub</span>
+              <span data-repo-updated>syncing</span>
+            </div>
+            <h2 id="code-title" data-repo-name>Latest repo</h2>
+            <p data-repo-description>Pulling the newest public work from GitHub.</p>
+            <div class="repo-meta">
+              <span data-repo-language>--</span>
+              <span data-repo-stars>0 stars</span>
+              <span data-repo-forks>0 forks</span>
+            </div>
+            <a class="button primary" data-repo-link href="https://github.com/" rel="noreferrer">Open repo</a>
+          </div>
+
+          <div class="code-window reveal" aria-label="Repository preview command">
+            <div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+            <pre><code data-code-snippet>$ git clone https://github.com/username/latest.git
+$ cd latest
+$ npm run dev</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-band graph-section" aria-labelledby="graph-title">
+        <div class="section-inner">
+          <div class="section-heading reveal">
+            <p class="kicker">signal</p>
+            <h2 id="graph-title">Where the work points.</h2>
+          </div>
+          <div class="skill-graph reveal" data-skill-graph></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <strong data-footer-name>Ryan Schatz</strong>
+        <span data-footer-line>ryanschatz.net</span>
+      </div>
+      <nav aria-label="Footer navigation">
+        <a href="/sts2">STS2</a>
+        <a href="#music">Music</a>
+        <a data-github-link href="https://github.com/" rel="noreferrer">GitHub</a>
+      </nav>
+    </footer>
+
+    <script src="/assets/js/app.js" defer></script>
+  </body>
+</html>

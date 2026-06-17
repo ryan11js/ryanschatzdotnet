@@ -1,0 +1,28 @@
+Options -Indexes
+DirectoryIndex index.html index.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  RewriteRule ^sts2(/.*)?$ - [L]
+  RewriteRule ^api/ - [L]
+
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|png|jpg|jpeg|webp|svg)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(html|json|php)$">
+    Header set Cache-Control "public, max-age=120"
+  </FilesMatch>
+</IfModule>
+
+AddType audio/mpeg .mp3
+AddType audio/mp4 .m4a
+AddType audio/ogg .ogg
+AddType audio/wav .wav
+AddType audio/flac .flac

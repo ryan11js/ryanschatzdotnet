@@ -1,0 +1,44 @@
+{
+  "site": {
+    "name": "Ryan Schatz",
+    "domain": "ryanschatz.net",
+    "intro": "Code, beats, and small tools built to ship.",
+    "footerLine": "ryanschatz.net",
+    "email": "hello@ryanschatz.net"
+  },
+  "social": {
+    "github": {
+      "username": "ripco",
+      "url": "https://github.com/ripco"
+    }
+  },
+  "githubPreview": {
+    "enabled": true,
+    "excludeForks": true,
+    "excludeArchived": true,
+    "fallbackRepo": {
+      "name": "portfolio-site",
+      "description": "Clean portfolio, beat archive, and live project surface.",
+      "html_url": "https://github.com/ripco",
+      "clone_url": "https://github.com/ripco/portfolio-site.git",
+      "language": "JavaScript",
+      "stargazers_count": 0,
+      "forks_count": 0,
+      "updated_at": "2026-06-17T00:00:00Z"
+    }
+  },
+  "music": {
+    "catalogUrl": "/content/music/catalog.json",
+    "audioBasePath": "/content/music/audio/",
+    "autoScanAudio": true,
+    "displayCount": "1000+",
+    "pageSize": 12,
+    "filters": ["all", "trap", "r&b", "cinematic", "electronic", "experimental"]
+  },
+  "signalGraph": [
+    { "label": "Frontend", "value": 94 },
+    { "label": "Audio", "value": 88 },
+    { "label": "Tools", "value": 91 },
+    { "label": "Systems", "value": 84 }
+  ]
+}
