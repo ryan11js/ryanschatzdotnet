@@ -12,7 +12,10 @@
     bpm: "all",
     musicMode: "featured",
     activeTrackId: null,
-    pageSize: 8
+    isPlaying: false,
+    pageSize: 8,
+    musicLoaded: false,
+    musicLoading: null
   };
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -354,7 +357,8 @@
     grid.innerHTML = visible.map((track) => {
       const levels = track.peaks.slice(0, 18).map((peak) => `<i style="--level:${Math.max(0.12, Math.min(1, peak))}"></i>`).join("");
       const disabled = track.src ? "" : "disabled";
-      const label = track.src ? (state.activeTrackId === track.id ? "Pause" : "Play") : "No audio file for";
+      const isActive = state.activeTrackId === track.id && state.isPlaying;
+      const label = track.src ? (isActive ? "Pause" : "Play") : "No audio file for";
       const meta = [
         track.year || "archive",
         track.number ? `#${track.number}` : "",
@@ -371,7 +375,7 @@
             </div>
             <div class="waveform" aria-hidden="true">${levels}</div>
           </div>
-          <button class="play-button" type="button" ${disabled} aria-label="${escapeHtml(label)} ${escapeHtml(track.title)}" data-play="${escapeHtml(track.id)}">${track.src ? (state.activeTrackId === track.id ? "II" : ">" ) : "+"}</button>
+          <button class="play-button" type="button" ${disabled} aria-label="${escapeHtml(label)} ${escapeHtml(track.title)}" data-play="${escapeHtml(track.id)}">${track.src ? (isActive ? "II" : ">" ) : "+"}</button>
         </article>
       `;
     }).join("");
@@ -395,22 +399,47 @@
     const player = $("[data-player]");
     if (!track || !track.src || !audio || !player) return;
 
-    if (state.activeTrackId === id && !audio.paused) {
-      audio.pause();
-      state.activeTrackId = null;
-      renderTracks();
+    if (state.activeTrackId === id && state.isPlaying) {
+      pauseActiveTrack();
+      return;
+    }
+
+    if (state.activeTrackId === id && audio.src) {
+      audio.play().catch((error) => {
+        console.error(error);
+        state.activeTrackId = null;
+        state.isPlaying = false;
+        $("[data-player-title]").textContent = "Audio unavailable";
+        renderTracks();
+      });
       return;
     }
 
     state.activeTrackId = id;
+    state.isPlaying = false;
     audio.src = track.src;
-    audio.play().catch(() => {});
     player.hidden = false;
     $("[data-player-title]").textContent = track.title;
     renderTracks();
+    audio.play().catch((error) => {
+      console.error(error);
+      state.activeTrackId = null;
+      state.isPlaying = false;
+      $("[data-player-title]").textContent = "Audio unavailable";
+      renderTracks();
+    });
   }
 
-  function randomBeat() {
+  function pauseActiveTrack() {
+    const audio = $("[data-audio]");
+    if (!audio) return;
+    audio.pause();
+    state.isPlaying = false;
+    renderTracks();
+  }
+
+  async function randomBeat() {
+    await ensureMusicLoaded();
     const candidates = currentTracks().filter((track) => track.src);
     if (!candidates.length) return;
     const index = Math.floor(Math.random() * candidates.length);
@@ -435,6 +464,19 @@
     renderMusicStats(state.tracks);
     renderMusicFilters();
     renderTracks();
+    state.musicLoaded = true;
+    return state.tracks;
+  }
+
+  function ensureMusicLoaded() {
+    if (state.musicLoaded) return Promise.resolve(state.tracks);
+    if (!state.musicLoading) {
+      state.musicLoading = loadMusic().catch((error) => {
+        state.musicLoading = null;
+        throw error;
+      });
+    }
+    return state.musicLoading;
   }
 
   function compactRepo(repo, config = state.config) {
@@ -602,12 +644,28 @@
     const audio = $("[data-audio]");
     const progress = $("[data-progress]");
     if (!audio || !progress) return;
+    audio.addEventListener("play", () => {
+      state.isPlaying = true;
+      renderTracks();
+    });
+    audio.addEventListener("pause", () => {
+      if (audio.ended) return;
+      state.isPlaying = false;
+      renderTracks();
+    });
+    audio.addEventListener("error", () => {
+      state.activeTrackId = null;
+      state.isPlaying = false;
+      $("[data-player-title]").textContent = "Audio unavailable";
+      renderTracks();
+    });
     audio.addEventListener("timeupdate", () => {
       const ratio = audio.duration ? audio.currentTime / audio.duration : 0;
       progress.style.setProperty("--progress", String(Math.max(0, Math.min(1, ratio))));
     });
     audio.addEventListener("ended", () => {
       state.activeTrackId = null;
+      state.isPlaying = false;
       renderTracks();
     });
   }
@@ -615,11 +673,19 @@
   function wireSearch() {
     const input = $("#trackSearch");
     if (!input) return;
+    input.addEventListener("focus", () => {
+      ensureMusicLoaded().catch((error) => console.error(error));
+    });
     input.addEventListener("input", () => {
       state.query = input.value;
       state.musicMode = input.value.trim() ? "archive" : state.musicMode;
       state.visibleTracks = state.pageSize;
-      renderTracks();
+      ensureMusicLoaded()
+        .then(() => {
+          renderMusicFilters();
+          renderTracks();
+        })
+        .catch((error) => console.error(error));
     });
   }
 
@@ -632,21 +698,58 @@
     state.visibleTracks = state.pageSize;
     const input = $("#trackSearch");
     if (input) input.value = "";
-    renderMusicFilters();
-    renderTracks();
+    ensureMusicLoaded()
+      .then(() => {
+        renderMusicFilters();
+        renderTracks();
+      })
+      .catch((error) => console.error(error));
   }
 
   function showArchive() {
     state.musicMode = "archive";
     state.visibleTracks = state.pageSize;
-    renderMusicFilters();
-    renderTracks();
+    ensureMusicLoaded()
+      .then(() => {
+        renderMusicFilters();
+        renderTracks();
+      })
+      .catch((error) => console.error(error));
   }
 
   function wireMusicActions() {
-    $("[data-random-beat]")?.addEventListener("click", randomBeat);
+    $("[data-random-beat]")?.addEventListener("click", () => {
+      randomBeat().catch((error) => console.error(error));
+    });
     $("[data-clear-filters]")?.addEventListener("click", clearMusicFilters);
     $("[data-show-archive]")?.addEventListener("click", showArchive);
+  }
+
+  function wireMusicLazyLoad() {
+    const trigger = () => {
+      ensureMusicLoaded().catch((error) => console.error(error));
+    };
+
+    $$('a[href="#music"]').forEach((link) => {
+      link.addEventListener("click", trigger, { once: true });
+    });
+
+    const section = $("#music");
+    if (!section) return;
+
+    if (!("IntersectionObserver" in window)) {
+      window.setTimeout(trigger, 0);
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        observer.disconnect();
+        trigger();
+      }
+    }, { rootMargin: "800px 0px", threshold: 0 });
+
+    observer.observe(section);
   }
 
   function wireReveal() {
@@ -778,9 +881,10 @@
     wireReveal();
     wireSearch();
     wireMusicActions();
+    wireMusicLazyLoad();
     wirePlayerProgress();
     bootSignalCanvas();
-    await Promise.all([loadMusic(), loadGithubPreview(config)]);
+    await loadGithubPreview(config);
   }
 
   init().catch((error) => {

@@ -6,26 +6,42 @@ require __DIR__ . '/_bootstrap.php';
 function parse_track_filename(string $filename): array
 {
     $base = pathinfo($filename, PATHINFO_FILENAME);
-    $title = trim(preg_replace('/\s+/', ' ', str_replace(['_', '-'], ' ', $base)) ?? $base);
+    $baseTitle = trim(preg_replace('/\s+/', ' ', str_replace(['_', '-'], ' ', $base)) ?? $base);
+    $title = $baseTitle;
     $year = null;
     $number = null;
     $key = '--';
     $bpm = 0;
+    $tail = '';
 
-    if (preg_match('/\b(20\d{2})\s*#\s*(\d+)\b/i', $title, $match)) {
-        $year = (int)$match[1];
+    if (preg_match('/^(.*?\b(20\d{2})\s*#\s*(\d+))\b(.*)$/i', $baseTitle, $match)) {
+        $title = $match[1];
+        $year = (int)$match[2];
+        $number = (int)$match[3];
+        $tail = (string)($match[4] ?? '');
+    } elseif (preg_match('/^(.*?#\s*(\d+))\b(.*)$/i', $baseTitle, $match)) {
+        $title = $match[1];
         $number = (int)$match[2];
-    } elseif (preg_match('/\btrack\s*#?\s*(\d+)\b/i', $title, $match)) {
-        $number = (int)$match[1];
+        $tail = (string)($match[3] ?? '');
+        if (preg_match('/\b(20\d{2})\b/', $title, $yearMatch)) {
+            $year = (int)$yearMatch[1];
+        }
+    } elseif (preg_match('/^(track\s*#?\s*(\d+))\b(.*)$/i', $baseTitle, $match)) {
+        $title = $match[1];
+        $number = (int)$match[2];
+        $tail = (string)($match[3] ?? '');
     }
 
-    if (preg_match_all('/\b([5-9]\d|1\d{2}|2[0-2]\d)\s*(?:bpm)?\b/i', $title, $matches)) {
+    $title = trim(preg_replace('/\s+/', ' ', $title) ?? $title);
+    $tail = trim(preg_replace('/\s+/', ' ', $tail) ?? $tail);
+
+    if (preg_match_all('/\b([5-9]\d|1\d{2}|2[0-2]\d)\s*bpm\b/i', $tail, $matches)) {
         $values = array_map('intval', $matches[1]);
         $bpm = (int)end($values);
     }
 
-    if (preg_match('/(?:^|[^A-Za-z0-9])([A-G](?:#|b)?)(?:\s*(maj|major|min|minor|m))?(?=$|[^A-Za-z0-9])/i', $title, $match)) {
-        $root = strtoupper($match[1][0]) . substr($match[1], 1);
+    if (preg_match('/(?:^|[^A-Za-z0-9])([A-G](?:#|b)?)(?:\s*(maj|major|min|minor|m))?(?=$|[^A-Za-z0-9])/i', $tail, $match)) {
+        $root = strtoupper($match[1][0]) . strtolower(substr($match[1], 1));
         $mode = strtolower((string)($match[2] ?? ''));
         if (in_array($mode, ['m', 'min', 'minor'], true)) {
             $key = $root . ' min';
@@ -43,6 +59,23 @@ function parse_track_filename(string $filename): array
         'key' => $key,
         'bpm' => $bpm,
     ];
+}
+
+function compare_tracks(array $a, array $b): int
+{
+    $year = ((int)($b['year'] ?? 0)) <=> ((int)($a['year'] ?? 0));
+    if ($year !== 0) {
+        return $year;
+    }
+
+    $aNumber = !array_key_exists('number', $a) || $a['number'] === null || $a['number'] === '' ? PHP_INT_MAX : (int)$a['number'];
+    $bNumber = !array_key_exists('number', $b) || $b['number'] === null || $b['number'] === '' ? PHP_INT_MAX : (int)$b['number'];
+    $number = $aNumber <=> $bNumber;
+    if ($number !== 0) {
+        return $number;
+    }
+
+    return strnatcasecmp((string)($a['src'] ?? $a['id'] ?? $a['title'] ?? ''), (string)($b['src'] ?? $b['id'] ?? $b['title'] ?? ''));
 }
 
 function normalize_track(array $track, int $index): array
@@ -126,7 +159,7 @@ function scan_audio_tracks(string $baseDir, string $baseUrl): array
         ];
     }
 
-    usort($tracks, static fn(array $a, array $b): int => strcasecmp((string)$a['title'], (string)$b['title']));
+    usort($tracks, 'compare_tracks');
     return $tracks;
 }
 
@@ -259,6 +292,8 @@ if (($musicConfig['autoScanAudio'] ?? false) === true) {
         }
     }
 }
+
+usort($tracks, 'compare_tracks');
 
 $query = strtolower(trim((string)($_GET['q'] ?? '')));
 $year = trim((string)($_GET['year'] ?? 'all'));

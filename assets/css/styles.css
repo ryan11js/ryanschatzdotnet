@@ -599,7 +599,7 @@ canvas {
 
 .player {
   display: grid;
-  grid-template-columns: 1fr minmax(90px, 160px);
+  grid-template-columns: 1fr;
   gap: 18px;
   align-items: center;
   margin-bottom: 16px;
@@ -610,7 +610,7 @@ canvas {
 }
 
 .player audio {
-  width: 100%;
+  display: none;
 }
 
 .progress {

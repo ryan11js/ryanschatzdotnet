@@ -25,6 +25,7 @@ const types = new Map([
   [".aif", "audio/aiff"],
   [".aiff", "audio/aiff"]
 ]);
+const audioExt = new Set([".mp3", ".m4a", ".wav", ".ogg", ".flac", ".webm", ".aif", ".aiff"]);
 
 async function readJson(relative, fallback = {}) {
   try {
@@ -50,17 +51,53 @@ function encodeRelative(relative) {
   return relative.split("/").map(encodeURIComponent).join("/");
 }
 
+function isInsideRoot(target) {
+  const relative = path.relative(root, target);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function normalizeRoot(root) {
+  return root.charAt(0).toUpperCase() + root.slice(1).toLowerCase();
+}
+
 function parseTrackFilename(filename) {
   const parsed = path.parse(filename);
-  const title = parsed.name.replace(/[_-]/g, " ").replace(/\s+/g, " ").trim();
-  const yearMatch = title.match(/\b(20\d{2})\s*#\s*(\d+)\b/i);
-  const trackMatch = title.match(/\btrack\s*#?\s*(\d+)\b/i);
-  const bpmMatches = Array.from(title.matchAll(/\b([5-9]\d|1\d{2}|2[0-2]\d)\s*(?:bpm)?\b/gi));
-  const keyMatch = title.match(/(?:^|[^A-Za-z0-9])([A-G](?:#|b)?)(?:\s*(maj|major|min|minor|m))?(?=$|[^A-Za-z0-9])/i);
+  const baseTitle = parsed.name.replace(/[_-]/g, " ").replace(/\s+/g, " ").trim();
+  const yearHashMatch = baseTitle.match(/^(.*?\b(20\d{2})\s*#\s*(\d+))\b(.*)$/i);
+  const genericHashMatch = yearHashMatch ? null : baseTitle.match(/^(.*?#\s*(\d+))\b(.*)$/i);
+  const trackMatch = yearHashMatch || genericHashMatch ? null : baseTitle.match(/^(track\s*#?\s*(\d+))\b(.*)$/i);
+
+  let title = baseTitle;
+  let year = null;
+  let number = null;
+  let tail = "";
+
+  if (yearHashMatch) {
+    title = yearHashMatch[1];
+    year = Number(yearHashMatch[2]);
+    number = Number(yearHashMatch[3]);
+    tail = yearHashMatch[4] || "";
+  } else if (genericHashMatch) {
+    title = genericHashMatch[1];
+    number = Number(genericHashMatch[2]);
+    tail = genericHashMatch[3] || "";
+    const titleYear = title.match(/\b(20\d{2})\b/);
+    year = titleYear ? Number(titleYear[1]) : null;
+  } else if (trackMatch) {
+    title = trackMatch[1];
+    number = Number(trackMatch[2]);
+    tail = trackMatch[3] || "";
+  }
+
+  title = title.replace(/\s+/g, " ").trim();
+  tail = tail.replace(/\s+/g, " ").trim();
+
+  const bpmMatches = Array.from(tail.matchAll(/\b([5-9]\d|1\d{2}|2[0-2]\d)\s*bpm\b/gi));
+  const keyMatch = tail.match(/(?:^|[^A-Za-z0-9])([A-G](?:#|b)?)(?:\s*(maj|major|min|minor|m))?(?=$|[^A-Za-z0-9])/i);
 
   let key = "--";
   if (keyMatch) {
-    const root = keyMatch[1].charAt(0).toUpperCase() + keyMatch[1].slice(1);
+    const root = normalizeRoot(keyMatch[1]);
     const mode = String(keyMatch[2] || "").toLowerCase();
     if (["m", "min", "minor"].includes(mode)) key = `${root} min`;
     else if (["maj", "major"].includes(mode)) key = `${root} maj`;
@@ -69,11 +106,26 @@ function parseTrackFilename(filename) {
 
   return {
     title,
-    year: yearMatch ? Number(yearMatch[1]) : null,
-    number: yearMatch ? Number(yearMatch[2]) : trackMatch ? Number(trackMatch[1]) : null,
+    year,
+    number,
     key,
     bpm: bpmMatches.length ? Number(bpmMatches.at(-1)[1]) : 0
   };
+}
+
+function compareTracks(a, b) {
+  const year = Number(b.year || 0) - Number(a.year || 0);
+  if (year !== 0) return year;
+
+  const aNumber = a.number === null || a.number === undefined ? Number.MAX_SAFE_INTEGER : Number(a.number);
+  const bNumber = b.number === null || b.number === undefined ? Number.MAX_SAFE_INTEGER : Number(b.number);
+  const number = aNumber - bNumber;
+  if (number !== 0) return number;
+
+  return String(a.src || a.id || a.title).localeCompare(String(b.src || b.id || b.title), undefined, {
+    numeric: true,
+    sensitivity: "base"
+  });
 }
 
 function normalizeTrack(track, index) {
@@ -102,7 +154,6 @@ function normalizeTrack(track, index) {
 
 async function scanAudioTracks(baseDir, baseUrl) {
   const tracks = [];
-  const audioExt = new Set([".mp3", ".m4a", ".wav", ".ogg", ".flac", ".webm", ".aif", ".aiff"]);
 
   async function walk(dir) {
     let entries = [];
@@ -138,7 +189,30 @@ async function scanAudioTracks(baseDir, baseUrl) {
   }
 
   await walk(baseDir);
-  return tracks.sort((a, b) => a.title.localeCompare(b.title));
+  return tracks.sort(compareTracks);
+}
+
+function resolveStaticTarget(filePath, pathname) {
+  const target = existsSync(filePath) && statSync(filePath).isDirectory()
+    ? path.join(filePath, "index.html")
+    : filePath;
+
+  if (existsSync(target) || !pathname.startsWith("/media/beats/")) {
+    return target;
+  }
+
+  const relativeAudio = pathname.replace(/^\/media\/beats\/+/, "");
+  const fallback = path.normalize(path.join(root, relativeAudio));
+  if (
+    audioExt.has(path.extname(fallback).toLowerCase())
+    && isInsideRoot(fallback)
+    && existsSync(fallback)
+    && statSync(fallback).isFile()
+  ) {
+    return fallback;
+  }
+
+  return target;
 }
 
 function seedKey(seed) {
@@ -228,6 +302,8 @@ async function handleMusic(request, response) {
     const known = new Set(tracks.flatMap((track) => [track.id, track.src].filter(Boolean)));
     tracks = tracks.concat(scanned.map(normalizeTrack).filter((track) => !known.has(track.id) && !known.has(track.src)));
   }
+
+  tracks.sort(compareTracks);
 
   const url = new URL(request.url, `http://${request.headers.host}`);
   const filtered = filterTracks(tracks, url);
@@ -334,15 +410,13 @@ function serveStatic(request, response) {
   if (pathname === "/") pathname = "/index.html";
 
   const filePath = path.normalize(path.join(root, pathname));
-  if (!filePath.startsWith(root)) {
+  if (!isInsideRoot(filePath)) {
     response.writeHead(403);
     response.end("Forbidden");
     return;
   }
 
-  const target = existsSync(filePath) && statSync(filePath).isDirectory()
-    ? path.join(filePath, "index.html")
-    : filePath;
+  const target = resolveStaticTarget(filePath, pathname);
 
   if (!existsSync(target)) {
     response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });

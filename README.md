@@ -40,7 +40,15 @@ To generate the catalog from a local Google Drive export:
 npm run import:beats -- "D:\Google Drive\Audio"
 ```
 
-The import script parses names like `2026 # 9 KEY BPM` and `track NUM KEY BPM`, then writes [content/music/catalog.json](content/music/catalog.json). It does not copy audio. Upload the same folder structure to `/public_html/media/beats/` so the generated `src` URLs resolve.
+For a year folder like the local `2026/` export, include the public subfolder in the generated URLs:
+
+```bash
+npm run import:beats -- "2026" --media-base=/media/beats/2026/
+```
+
+The import script parses names like `2026 # 9 KEY BPM` and `track NUM KEY BPM`, keeps the display title at `# NUM`, and stores key/BPM metadata separately. It does not copy audio. Upload the same folder structure to `/public_html/media/beats/` so the generated `src` URLs resolve. The browser loads music metadata lazily when the music section is near view or when a music control is used; audio files load only after pressing play.
+
+For local preview, `server.mjs` can serve `/media/beats/2026/...` URLs from the top-level `2026/` export folder if `media/beats/2026/` has not been populated yet.
 
 Featured homepage seeds are configured in [config/site.json](config/site.json): `2026 # 9`, `2026 # 11`, `2026 # 20`, and `2026 # 22`. The UI auto-fills the remaining featured slots from the catalog.
 
