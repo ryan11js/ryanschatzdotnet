@@ -1,6 +1,6 @@
 # ryanschatz.net
 
-Portfolio landing page for `ryanschatz.net`: music archive, `/sts2` link, GitHub repo preview, and configurable content.
+Portfolio landing page for `ryanschatz.net`: music archive, `/sts2` link, project hub, GitHub repo feed, and configurable content.
 
 ## Local Preview
 
@@ -18,26 +18,31 @@ Edit [config/site.json](config/site.json):
 
 - `social.github.username`: GitHub username used for the live latest-repo preview.
 - `social.github.url`: GitHub profile URL.
-- `music.audioBasePath`: URL path for beat files.
-- `music.autoScanAudio`: when `true`, `/api/music.php` scans `content/music/audio`.
+- `githubPreview.excludeNames`: repos to hide from the public project feed.
+- `githubPreview.pinned`: featured project cards.
+- `music.audioBasePath`: URL path for hosted beat files, currently `/media/beats/`.
+- `music.autoScanAudio`: when `true`, `/api/music.php` scans the hosted beat folder.
 - `signalGraph`: the lower visual graph values.
 
 ## Music
 
-Put audio files here:
+Beat audio should live on the server, outside Git:
 
 ```text
-content/music/audio/
+public_html/media/beats/
 ```
 
-You can organize them by genre:
+The repo tracks only [media/beats/.gitkeep](media/beats/.gitkeep). Audio extensions are ignored so large beat files do not get committed.
 
-```text
-content/music/audio/trap/beat-name.mp3
-content/music/audio/r&b/beat-name.m4a
+To generate the catalog from a local Google Drive export:
+
+```bash
+npm run import:beats -- "D:\Google Drive\Audio"
 ```
 
-For richer metadata, add entries to [content/music/catalog.json](content/music/catalog.json). Catalog entries can include `title`, `genre`, `bpm`, `key`, `duration`, `mood`, `src`, and optional `peaks`.
+The import script parses names like `2026 # 9 KEY BPM` and `track NUM KEY BPM`, then writes [content/music/catalog.json](content/music/catalog.json). It does not copy audio. Upload the same folder structure to `/public_html/media/beats/` so the generated `src` URLs resolve.
+
+Featured homepage seeds are configured in [config/site.json](config/site.json): `2026 # 9`, `2026 # 11`, `2026 # 20`, and `2026 # 22`. The UI auto-fills the remaining featured slots from the catalog.
 
 ## cPanel Git
 
@@ -47,6 +52,7 @@ This repo is static/PHP friendly:
 - `/api/*.php` should run on standard cPanel PHP.
 - `/sts2` is left alone by `.htaccess`, so your existing tool can live there.
 - `cache/github-*.json` is ignored by Git and used only for GitHub API caching.
+- `.cpanel.yml` creates `/public_html/media/beats/` and does not overwrite uploaded audio.
 
 Suggested first remote:
 

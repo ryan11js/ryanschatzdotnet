@@ -3,20 +3,45 @@ declare(strict_types=1);
 
 require __DIR__ . '/_bootstrap.php';
 
-function github_fallback_repo(array $config): array
+function github_fallback_repos(array $config): array
 {
+    $pinned = (array)($config['githubPreview']['pinned'] ?? []);
     $fallback = (array)($config['githubPreview']['fallbackRepo'] ?? []);
-    $github = (array)($config['social']['github'] ?? []);
-    return $fallback + [
-        'name' => 'latest-project',
-        'description' => 'Newest public repository preview.',
-        'html_url' => (string)($github['url'] ?? 'https://github.com/'),
-        'clone_url' => rtrim((string)($github['url'] ?? 'https://github.com/user'), '/') . '/latest-project.git',
-        'language' => 'Code',
-        'stargazers_count' => 0,
-        'forks_count' => 0,
-        'updated_at' => gmdate('c'),
+
+    $repos = [
+        [
+            'name' => 'sts2crng',
+            'description' => 'A tool to provide insight into Correlated Randomness in Slay the Spire 2',
+            'html_url' => 'https://github.com/ryan11js/sts2crng',
+            'clone_url' => 'https://github.com/ryan11js/sts2crng.git',
+            'language' => 'JavaScript',
+            'stargazers_count' => 0,
+            'forks_count' => 0,
+            'updated_at' => gmdate('c'),
+        ],
+        [
+            'name' => 'beamng-playerguns',
+            'description' => 'A mod to add Player Guns into BeamNG Drive working with Beam MP multiplayer.',
+            'html_url' => 'https://github.com/ryan11js/beamng-playerguns',
+            'clone_url' => 'https://github.com/ryan11js/beamng-playerguns.git',
+            'language' => 'Lua',
+            'stargazers_count' => 0,
+            'forks_count' => 0,
+            'updated_at' => gmdate('c'),
+        ],
+        $fallback + [
+            'name' => 'ryanschatzdotnet',
+            'description' => 'Repo for landing page of my website RyanSchatz.net',
+            'html_url' => 'https://github.com/ryan11js/ryanschatzdotnet',
+            'clone_url' => 'https://github.com/ryan11js/ryanschatzdotnet.git',
+            'language' => 'JavaScript',
+            'stargazers_count' => 0,
+            'forks_count' => 0,
+            'updated_at' => gmdate('c'),
+        ],
     ];
+
+    return array_map(static fn(array $repo): array => enrich_repo($repo, $config, $pinned), $repos);
 }
 
 function fetch_url_json(string $url): ?array
@@ -69,58 +94,129 @@ function write_cache(string $username, array $payload): void
     }
 }
 
+function pinned_by_name(array $pinned): array
+{
+    $map = [];
+    foreach ($pinned as $item) {
+        if (is_array($item) && !empty($item['name'])) {
+            $map[(string)$item['name']] = $item;
+        }
+    }
+    return $map;
+}
+
+function enrich_repo(array $repo, array $config, array $pinned): array
+{
+    $pinMap = pinned_by_name($pinned);
+    $name = (string)($repo['name'] ?? '');
+    $pin = $pinMap[$name] ?? [];
+    $websiteRepo = (string)($config['githubPreview']['websiteRepo'] ?? '');
+
+    return [
+        'name' => $name,
+        'title' => (string)($pin['title'] ?? $repo['name'] ?? 'repo'),
+        'category' => (string)($pin['category'] ?? ($name === $websiteRepo ? 'Website' : 'Repo')),
+        'description' => (string)($pin['description'] ?? $repo['description'] ?? 'Public repository preview.'),
+        'html_url' => (string)($repo['html_url'] ?? 'https://github.com/ryan11js'),
+        'project_url' => (string)($pin['projectUrl'] ?? $repo['html_url'] ?? 'https://github.com/ryan11js'),
+        'clone_url' => (string)($repo['clone_url'] ?? ''),
+        'language' => (string)($repo['language'] ?? 'Code'),
+        'stargazers_count' => (int)($repo['stargazers_count'] ?? 0),
+        'forks_count' => (int)($repo['forks_count'] ?? 0),
+        'updated_at' => (string)($repo['pushed_at'] ?? $repo['updated_at'] ?? gmdate('c')),
+        'topics' => array_values((array)($repo['topics'] ?? [])),
+        'isPinned' => isset($pinMap[$name]),
+        'isWebsiteRepo' => $name === $websiteRepo,
+    ];
+}
+
+function repo_allowed(array $repo, array $config): bool
+{
+    $name = (string)($repo['name'] ?? '');
+    $excludeNames = array_map('strval', (array)($config['githubPreview']['excludeNames'] ?? []));
+
+    if ($name === '' || in_array($name, $excludeNames, true)) {
+        return false;
+    }
+    if ((bool)($config['githubPreview']['excludeForks'] ?? true) && !empty($repo['fork'])) {
+        return false;
+    }
+    if ((bool)($config['githubPreview']['excludeArchived'] ?? true) && !empty($repo['archived'])) {
+        return false;
+    }
+    return true;
+}
+
+function select_featured(array $repos, array $config): array
+{
+    $featured = [];
+    foreach ((array)($config['githubPreview']['pinned'] ?? []) as $pin) {
+        if (!is_array($pin) || empty($pin['name'])) {
+            continue;
+        }
+        foreach ($repos as $repo) {
+            if (($repo['name'] ?? '') === $pin['name']) {
+                $featured[] = $repo;
+                break;
+            }
+        }
+    }
+    return $featured;
+}
+
+function select_latest(array $repos, array $config): array
+{
+    $websiteRepo = (string)($config['githubPreview']['websiteRepo'] ?? '');
+    foreach ($repos as $repo) {
+        if (($repo['name'] ?? '') !== $websiteRepo) {
+            return $repo;
+        }
+    }
+    return $repos[0] ?? [];
+}
+
 $config = site_config();
 $github = (array)($config['social']['github'] ?? []);
 $username = trim((string)($github['username'] ?? ''));
 
 if ($username === '') {
-    json_response(['repo' => github_fallback_repo($config), 'source' => 'fallback']);
+    $repos = github_fallback_repos($config);
+    json_response([
+        'repos' => $repos,
+        'featured' => select_featured($repos, $config),
+        'latest' => select_latest($repos, $config),
+        'source' => 'fallback',
+    ]);
 }
 
 $cache = read_cache($username, 600);
 if ($cache !== null) {
-    json_response($cache + ['source' => 'cache']);
+    json_response($cache + ['source' => $cache['source'] ?? 'cache']);
 }
 
-$repos = fetch_url_json('https://api.github.com/users/' . rawurlencode($username) . '/repos?sort=updated&per_page=30');
-if ($repos === null || isset($repos['message'])) {
-    json_response(['repo' => github_fallback_repo($config), 'source' => 'fallback']);
+$reposRaw = fetch_url_json('https://api.github.com/users/' . rawurlencode($username) . '/repos?sort=updated&per_page=100');
+if ($reposRaw === null || isset($reposRaw['message'])) {
+    $repos = github_fallback_repos($config);
+    json_response([
+        'repos' => $repos,
+        'featured' => select_featured($repos, $config),
+        'latest' => select_latest($repos, $config),
+        'source' => 'fallback',
+    ]);
 }
 
-$excludeForks = (bool)($config['githubPreview']['excludeForks'] ?? true);
-$excludeArchived = (bool)($config['githubPreview']['excludeArchived'] ?? true);
-$repo = null;
-
-foreach ($repos as $candidate) {
-    if (!is_array($candidate)) {
-        continue;
+$pinned = (array)($config['githubPreview']['pinned'] ?? []);
+$repos = [];
+foreach ($reposRaw as $repo) {
+    if (is_array($repo) && repo_allowed($repo, $config)) {
+        $repos[] = enrich_repo($repo, $config, $pinned);
     }
-    if ($excludeForks && !empty($candidate['fork'])) {
-        continue;
-    }
-    if ($excludeArchived && !empty($candidate['archived'])) {
-        continue;
-    }
-    $repo = $candidate;
-    break;
-}
-
-if ($repo === null && isset($repos[0]) && is_array($repos[0])) {
-    $repo = $repos[0];
 }
 
 $payload = [
-    'repo' => [
-        'name' => (string)($repo['name'] ?? 'latest-project'),
-        'description' => (string)($repo['description'] ?? 'Newest public repository preview.'),
-        'html_url' => (string)($repo['html_url'] ?? ($github['url'] ?? 'https://github.com/')),
-        'clone_url' => (string)($repo['clone_url'] ?? ''),
-        'language' => (string)($repo['language'] ?? 'Code'),
-        'stargazers_count' => (int)($repo['stargazers_count'] ?? 0),
-        'forks_count' => (int)($repo['forks_count'] ?? 0),
-        'updated_at' => (string)($repo['pushed_at'] ?? ($repo['updated_at'] ?? gmdate('c'))),
-        'topics' => array_values((array)($repo['topics'] ?? [])),
-    ],
+    'repos' => $repos,
+    'featured' => select_featured($repos, $config),
+    'latest' => select_latest($repos, $config),
     'source' => 'github',
 ];
 

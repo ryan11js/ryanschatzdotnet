@@ -21,7 +21,9 @@ const types = new Map([
   [".m4a", "audio/mp4"],
   [".wav", "audio/wav"],
   [".ogg", "audio/ogg"],
-  [".flac", "audio/flac"]
+  [".flac", "audio/flac"],
+  [".aif", "audio/aiff"],
+  [".aiff", "audio/aiff"]
 ]);
 
 async function readJson(relative, fallback = {}) {
@@ -44,9 +46,63 @@ function safeSlug(value) {
   return String(value || "item").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "item";
 }
 
+function encodeRelative(relative) {
+  return relative.split("/").map(encodeURIComponent).join("/");
+}
+
+function parseTrackFilename(filename) {
+  const parsed = path.parse(filename);
+  const title = parsed.name.replace(/[_-]/g, " ").replace(/\s+/g, " ").trim();
+  const yearMatch = title.match(/\b(20\d{2})\s*#\s*(\d+)\b/i);
+  const trackMatch = title.match(/\btrack\s*#?\s*(\d+)\b/i);
+  const bpmMatches = Array.from(title.matchAll(/\b([5-9]\d|1\d{2}|2[0-2]\d)\s*(?:bpm)?\b/gi));
+  const keyMatch = title.match(/(?:^|[^A-Za-z0-9])([A-G](?:#|b)?)(?:\s*(maj|major|min|minor|m))?(?=$|[^A-Za-z0-9])/i);
+
+  let key = "--";
+  if (keyMatch) {
+    const root = keyMatch[1].charAt(0).toUpperCase() + keyMatch[1].slice(1);
+    const mode = String(keyMatch[2] || "").toLowerCase();
+    if (["m", "min", "minor"].includes(mode)) key = `${root} min`;
+    else if (["maj", "major"].includes(mode)) key = `${root} maj`;
+    else key = root;
+  }
+
+  return {
+    title,
+    year: yearMatch ? Number(yearMatch[1]) : null,
+    number: yearMatch ? Number(yearMatch[2]) : trackMatch ? Number(trackMatch[1]) : null,
+    key,
+    bpm: bpmMatches.length ? Number(bpmMatches.at(-1)[1]) : 0
+  };
+}
+
+function normalizeTrack(track, index) {
+  const parsed = parseTrackFilename(track.title || `Beat ${String(index + 1).padStart(3, "0")}`);
+  const hasYear = track.year !== null && track.year !== undefined && track.year !== "";
+  const hasNumber = track.number !== null && track.number !== undefined && track.number !== "";
+  const year = hasYear && Number.isFinite(Number(track.year)) ? Number(track.year) : parsed.year;
+  const number = hasNumber && Number.isFinite(Number(track.number)) ? Number(track.number) : parsed.number;
+  const tags = Array.isArray(track.tags) ? [...track.tags] : Array.isArray(track.mood) ? [...track.mood] : [];
+  if (year && !tags.includes(String(year))) tags.push(String(year));
+  if (track.featured && !tags.includes("featured")) tags.push("featured");
+
+  return {
+    id: track.id || safeSlug(`${year || ""}-${number || ""}-${track.title || parsed.title}-${index}`),
+    title: track.title || parsed.title,
+    year,
+    number,
+    key: track.key || parsed.key || "--",
+    bpm: Number(track.bpm || parsed.bpm || 0),
+    src: track.src || "",
+    tags,
+    featured: Boolean(track.featured),
+    peaks: Array.isArray(track.peaks) ? track.peaks : []
+  };
+}
+
 async function scanAudioTracks(baseDir, baseUrl) {
   const tracks = [];
-  const audioExt = new Set([".mp3", ".m4a", ".wav", ".ogg", ".flac", ".webm"]);
+  const audioExt = new Set([".mp3", ".m4a", ".wav", ".ogg", ".flac", ".webm", ".aif", ".aiff"]);
 
   async function walk(dir) {
     let entries = [];
@@ -65,17 +121,17 @@ async function scanAudioTracks(baseDir, baseUrl) {
       if (!audioExt.has(path.extname(entry.name).toLowerCase())) continue;
 
       const relative = path.relative(baseDir, full).split(path.sep).join("/");
-      const parsed = path.parse(relative);
-      const genre = parsed.dir ? path.basename(parsed.dir) : "uncategorized";
+      const parsed = parseTrackFilename(path.basename(relative));
       tracks.push({
         id: safeSlug(relative),
-        title: parsed.name.replace(/[_-]/g, " "),
-        genre,
-        bpm: 0,
-        key: "--",
-        duration: "--",
-        mood: [],
-        src: `${baseUrl.replace(/\/$/, "")}/${relative.split("/").map(encodeURIComponent).join("/")}`,
+        title: parsed.title,
+        year: parsed.year,
+        number: parsed.number,
+        key: parsed.key,
+        bpm: parsed.bpm,
+        src: `${baseUrl.replace(/\/$/, "")}/${encodeRelative(relative)}`,
+        tags: parsed.year ? [String(parsed.year)] : [],
+        featured: false,
         peaks: []
       });
     }
@@ -83,6 +139,77 @@ async function scanAudioTracks(baseDir, baseUrl) {
 
   await walk(baseDir);
   return tracks.sort((a, b) => a.title.localeCompare(b.title));
+}
+
+function seedKey(seed) {
+  return `${Number(seed.year || 0)}-${Number(seed.number || 0)}`;
+}
+
+function trackSeedKey(track) {
+  return `${Number(track.year || 0)}-${Number(track.number || 0)}`;
+}
+
+function selectFeaturedTracks(tracks, config) {
+  const limit = Number(config.music?.featuredLimit || 8);
+  const selected = [];
+  const used = new Set();
+  const seeds = Array.isArray(config.music?.featuredSeeds) ? config.music.featuredSeeds : [];
+
+  for (const seed of seeds) {
+    const match = tracks.find((track) => trackSeedKey(track) === seedKey(seed));
+    if (match && !used.has(match.id)) {
+      selected.push(match);
+      used.add(match.id);
+    }
+  }
+
+  for (const pool of [
+    tracks.filter((track) => track.featured),
+    tracks.filter((track) => track.year === 2026),
+    tracks
+  ]) {
+    for (const track of pool) {
+      if (selected.length >= limit) return selected.slice(0, limit);
+      if (!used.has(track.id)) {
+        selected.push(track);
+        used.add(track.id);
+      }
+    }
+  }
+
+  return selected.slice(0, limit);
+}
+
+function filterTracks(tracks, url) {
+  const query = (url.searchParams.get("q") || "").toLowerCase();
+  const year = url.searchParams.get("year") || "all";
+  const key = url.searchParams.get("key") || "all";
+  const bpmMin = Math.max(0, Number(url.searchParams.get("bpm_min") || 0));
+  const bpmMax = Math.min(999, Number(url.searchParams.get("bpm_max") || 999));
+  const featuredRaw = url.searchParams.get("featured");
+  const featured = featuredRaw === null ? null : featuredRaw === "true";
+
+  return tracks.filter((track) => {
+    if (featured !== null && track.featured !== featured) return false;
+    if (year !== "all" && String(track.year || "unknown") !== year) return false;
+    if (key !== "all" && String(track.key || "--").toLowerCase() !== key.toLowerCase()) return false;
+    if ((bpmMin > 0 || bpmMax < 999) && (!track.bpm || track.bpm < bpmMin || track.bpm > bpmMax)) return false;
+    if (!query) return true;
+    return [
+      track.title,
+      track.year,
+      track.number ? `# ${track.number}` : "",
+      track.key,
+      track.bpm ? `${track.bpm} bpm` : "",
+      ...(track.tags || [])
+    ].join(" ").toLowerCase().includes(query);
+  });
+}
+
+function musicFacets(tracks) {
+  const years = Array.from(new Set(tracks.map((track) => track.year).filter(Boolean))).sort((a, b) => b - a);
+  const keys = Array.from(new Set(tracks.map((track) => track.key).filter((key) => key && key !== "--"))).sort((a, b) => a.localeCompare(b));
+  return { years, keys };
 }
 
 async function handleSite(response) {
@@ -93,82 +220,111 @@ async function handleMusic(request, response) {
   const config = await readJson("config/site.json");
   const catalog = await readJson("content/music/catalog.json", { tracks: [] });
   const music = config.music || {};
-  let tracks = Array.isArray(catalog.tracks) ? catalog.tracks : [];
+  let tracks = Array.isArray(catalog.tracks) ? catalog.tracks.map(normalizeTrack) : [];
 
   if (music.autoScanAudio) {
-    const scanned = await scanAudioTracks(path.join(root, "content/music/audio"), music.audioBasePath || "/content/music/audio/");
-    const known = new Set(tracks.map((track) => track.src).filter(Boolean));
-    tracks = tracks.concat(scanned.filter((track) => !known.has(track.src)));
+    const audioBasePath = music.audioBasePath || "/media/beats/";
+    const scanned = await scanAudioTracks(path.join(root, audioBasePath.replace(/^\/+|\/+$/g, "")), audioBasePath);
+    const known = new Set(tracks.flatMap((track) => [track.id, track.src].filter(Boolean)));
+    tracks = tracks.concat(scanned.map(normalizeTrack).filter((track) => !known.has(track.id) && !known.has(track.src)));
   }
 
   const url = new URL(request.url, `http://${request.headers.host}`);
-  const query = (url.searchParams.get("q") || "").toLowerCase();
-  const genre = (url.searchParams.get("genre") || "all").toLowerCase();
+  const filtered = filterTracks(tracks, url);
   const offset = Math.max(0, Number(url.searchParams.get("offset") || 0));
   const limit = Math.max(0, Number(url.searchParams.get("limit") || 0));
 
-  const filtered = tracks.filter((track) => {
-    if (genre !== "all" && String(track.genre || "").toLowerCase() !== genre) return false;
-    if (!query) return true;
-    return [track.title, track.genre, track.key, ...(track.mood || [])].join(" ").toLowerCase().includes(query);
-  });
-
   sendJson(response, {
     tracks: limit ? filtered.slice(offset, offset + Math.min(limit, 100)) : filtered,
+    featured: selectFeaturedTracks(tracks, config),
     total: filtered.length,
-    available: tracks.length
+    available: tracks.length,
+    facets: musicFacets(tracks)
   });
 }
 
-function fallbackRepo(config) {
-  const github = config.social?.github || {};
+function enrichRepo(repo, config) {
+  const pin = (config.githubPreview?.pinned || []).find((item) => item.name === repo.name) || {};
+  const websiteRepo = config.githubPreview?.websiteRepo;
   return {
-    ...(config.githubPreview?.fallbackRepo || {}),
-    name: config.githubPreview?.fallbackRepo?.name || "latest-project",
-    description: config.githubPreview?.fallbackRepo?.description || "Newest public repository preview.",
-    html_url: config.githubPreview?.fallbackRepo?.html_url || github.url || "https://github.com/",
-    clone_url: config.githubPreview?.fallbackRepo?.clone_url || `${github.url || "https://github.com/user"}/latest-project.git`,
-    language: config.githubPreview?.fallbackRepo?.language || "Code",
-    stargazers_count: 0,
-    forks_count: 0,
-    updated_at: new Date().toISOString()
+    name: repo.name,
+    title: pin.title || repo.title || repo.name,
+    category: pin.category || repo.category || (repo.name === websiteRepo ? "Website" : "Repo"),
+    description: pin.description || repo.description || "Public repository preview.",
+    html_url: repo.html_url || repo.url || "https://github.com/ryan11js",
+    project_url: pin.projectUrl || repo.project_url || repo.html_url || repo.url || "https://github.com/ryan11js",
+    clone_url: repo.clone_url || `${repo.html_url || repo.url}.git`,
+    language: repo.language || "Code",
+    stargazers_count: repo.stargazers_count || 0,
+    forks_count: repo.forks_count || 0,
+    updated_at: repo.pushed_at || repo.updated_at || new Date().toISOString(),
+    topics: repo.topics || [],
+    isPinned: Boolean(pin.name),
+    isWebsiteRepo: repo.name === websiteRepo
   };
+}
+
+function fallbackRepos(config) {
+  return [
+    enrichRepo({
+      name: "sts2crng",
+      description: "A tool to provide insight into Correlated Randomness in Slay the Spire 2",
+      html_url: "https://github.com/ryan11js/sts2crng",
+      clone_url: "https://github.com/ryan11js/sts2crng.git",
+      language: "JavaScript"
+    }, config),
+    enrichRepo({
+      name: "beamng-playerguns",
+      description: "A mod to add Player Guns into BeamNG Drive working with Beam MP multiplayer.",
+      html_url: "https://github.com/ryan11js/beamng-playerguns",
+      clone_url: "https://github.com/ryan11js/beamng-playerguns.git",
+      language: "Lua"
+    }, config),
+    enrichRepo(config.githubPreview?.fallbackRepo || {
+      name: "ryanschatzdotnet",
+      description: "Repo for landing page of my website RyanSchatz.net",
+      html_url: "https://github.com/ryan11js/ryanschatzdotnet",
+      clone_url: "https://github.com/ryan11js/ryanschatzdotnet.git",
+      language: "JavaScript"
+    }, config)
+  ];
+}
+
+function selectFeaturedRepos(repos, config) {
+  return (config.githubPreview?.pinned || [])
+    .map((pin) => repos.find((repo) => repo.name === pin.name))
+    .filter(Boolean);
+}
+
+function selectLatestRepo(repos, config) {
+  return repos.find((repo) => repo.name !== config.githubPreview?.websiteRepo) || repos[0] || null;
 }
 
 async function handleGithub(response) {
   const config = await readJson("config/site.json");
   const username = config.social?.github?.username;
   if (!username) {
-    sendJson(response, { repo: fallbackRepo(config), source: "fallback" });
+    const repos = fallbackRepos(config);
+    sendJson(response, { repos, featured: selectFeaturedRepos(repos, config), latest: selectLatestRepo(repos, config), source: "fallback" });
     return;
   }
 
   try {
-    const githubResponse = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=30`, {
+    const githubResponse = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100`, {
       headers: {
         "Accept": "application/vnd.github+json",
         "User-Agent": "ryanschatz-net"
       }
     });
     if (!githubResponse.ok) throw new Error(`GitHub ${githubResponse.status}`);
-    const repos = await githubResponse.json();
-    const repo = repos.find((item) => !item.fork && !item.archived) || repos[0] || fallbackRepo(config);
-    sendJson(response, {
-      repo: {
-        name: repo.name,
-        description: repo.description || "Public repository preview.",
-        html_url: repo.html_url,
-        clone_url: repo.clone_url || `${repo.html_url}.git`,
-        language: repo.language || "Code",
-        stargazers_count: repo.stargazers_count || 0,
-        forks_count: repo.forks_count || 0,
-        updated_at: repo.pushed_at || repo.updated_at || new Date().toISOString(),
-        topics: repo.topics || []
-      },
-      source: "github"
-    });
+    const excluded = new Set(config.githubPreview?.excludeNames || []);
+    const repos = (await githubResponse.json())
+      .filter((repo) => repo && repo.name && !repo.fork && !repo.archived && !excluded.has(repo.name))
+      .map((repo) => enrichRepo(repo, config));
+    sendJson(response, { repos, featured: selectFeaturedRepos(repos, config), latest: selectLatestRepo(repos, config), source: "github" });
   } catch {
-    sendJson(response, { repo: fallbackRepo(config), source: "fallback" });
+    const repos = fallbackRepos(config);
+    sendJson(response, { repos, featured: selectFeaturedRepos(repos, config), latest: selectLatestRepo(repos, config), source: "fallback" });
   }
 }
 

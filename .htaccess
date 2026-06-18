@@ -26,3 +26,5 @@ AddType audio/mp4 .m4a
 AddType audio/ogg .ogg
 AddType audio/wav .wav
 AddType audio/flac .flac
+AddType audio/aiff .aif
+AddType audio/aiff .aiff

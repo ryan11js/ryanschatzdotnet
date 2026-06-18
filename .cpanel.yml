@@ -4,6 +4,7 @@ deployment:
     - export DEPLOYPATH=$HOME/public_html/
     - /bin/mkdir -p "$DEPLOYPATH"
     - /bin/mkdir -p "$DEPLOYPATH/cache"
+    - /bin/mkdir -p "$DEPLOYPATH/media/beats"
     - /bin/cp index.html "$DEPLOYPATH"
     - /bin/cp .htaccess "$DEPLOYPATH"
     - /bin/cp robots.txt "$DEPLOYPATH"
@@ -13,3 +14,5 @@ deployment:
     - /bin/cp -R content "$DEPLOYPATH"
     - /bin/chmod 755 "$DEPLOYPATH"
     - /bin/chmod 775 "$DEPLOYPATH/cache"
+    - /bin/chmod 775 "$DEPLOYPATH/media"
+    - /bin/chmod 775 "$DEPLOYPATH/media/beats"

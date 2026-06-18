@@ -29,10 +29,25 @@ cache/*.json
 !cache/.gitkeep
 .cache/
 
+# Beat audio stays out of Git; upload/sync to cPanel public_html/media/beats.
+media/beats/**
+!media/beats/
+!media/beats/.gitkeep
+*.mp3
+*.m4a
+*.wav
+*.aif
+*.aiff
+*.flac
+*.ogg
+*.webm
+
 # Temporary files
 tmp/
 temp/
 *.tmp
+local-beats/
+drive-export/
 
 # cPanel or FTP credentials/backups that should stay local
 .ftpconfig

@@ -24,7 +24,7 @@
       </a>
       <nav class="site-nav" aria-label="Primary navigation">
         <a href="#music">Music</a>
-        <a href="#code">Code</a>
+        <a href="#projects">Projects</a>
         <a href="/sts2">STS2</a>
         <a data-github-link href="https://github.com/" rel="noreferrer">GitHub</a>
       </nav>
@@ -52,7 +52,7 @@
           </div>
           <div>
             <span>live</span>
-            <small>repo preview</small>
+            <small>projects</small>
           </div>
           <div>
             <span>/sts2</span>
@@ -61,33 +61,68 @@
         </div>
       </section>
 
-      <section class="section-band surface-section" aria-labelledby="surface-title">
+      <section class="section-band projects-section" id="projects" aria-labelledby="projects-title">
         <div class="section-inner">
           <div class="section-heading reveal">
-            <p class="kicker">current surface</p>
-            <h2 id="surface-title">A compact launchpad.</h2>
+            <p class="kicker">projects</p>
+            <h2 id="projects-title">Tools, mods, repos.</h2>
           </div>
-          <div class="surface-grid">
+          <div class="surface-grid" data-featured-projects>
             <a class="surface-card reveal" href="/sts2">
               <span class="surface-label">Tool</span>
-              <strong>Slay the Spire 2</strong>
+              <strong>Slay the Spire 2 Tool</strong>
+              <span class="surface-description">Correlated randomness insight for Slay the Spire 2.</span>
               <span class="surface-visual relic-grid" aria-hidden="true">
                 <i></i><i></i><i></i><i></i><i></i><i></i>
               </span>
             </a>
-            <a class="surface-card reveal" href="#music">
-              <span class="surface-label">Archive</span>
-              <strong>Beat library</strong>
+            <a class="surface-card reveal" href="https://github.com/ryan11js/beamng-playerguns" rel="noreferrer">
+              <span class="surface-label">Game Mod</span>
+              <strong>BeamNG Playerguns</strong>
+              <span class="surface-description">Player guns for BeamNG Drive and BeamMP.</span>
+              <span class="surface-visual code-lines" aria-hidden="true">
+                <i></i><i></i><i></i><i></i><i></i>
+              </span>
+            </a>
+            <a class="surface-card reveal" data-github-link href="https://github.com/ryan11js" rel="noreferrer">
+              <span class="surface-label">GitHub</span>
+              <strong>Live repo feed</strong>
+              <span class="surface-description">New public repos appear automatically.</span>
               <span class="surface-visual mini-wave" aria-hidden="true">
                 <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
               </span>
             </a>
-            <a class="surface-card reveal" href="#code">
-              <span class="surface-label">Code</span>
-              <strong>Latest repo</strong>
-              <span class="surface-visual code-lines" aria-hidden="true">
-                <i></i><i></i><i></i><i></i><i></i>
-              </span>
+          </div>
+
+          <div class="project-feed reveal" aria-labelledby="repo-feed-title">
+            <div class="repo-preview" data-repo-preview>
+              <div class="repo-topline">
+                <span class="repo-source">GitHub</span>
+                <span data-repo-updated>syncing</span>
+              </div>
+              <h3 id="repo-feed-title" data-repo-name>Latest project</h3>
+              <p data-repo-description>Pulling public work from GitHub.</p>
+              <div class="repo-meta">
+                <span data-repo-language>--</span>
+                <span data-repo-stars>0 stars</span>
+                <span data-repo-forks>0 forks</span>
+              </div>
+              <a class="button primary" data-repo-link href="https://github.com/ryan11js" rel="noreferrer">Open project</a>
+            </div>
+
+            <div class="code-window" aria-label="Repository preview command">
+              <div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+              <pre><code data-code-snippet>$ git clone https://github.com/ryan11js/latest.git
+$ cd latest
+$ code .</code></pre>
+            </div>
+          </div>
+
+          <div class="repo-grid reveal" data-repo-grid aria-label="GitHub repositories">
+            <a class="repo-card" href="https://github.com/ryan11js/sts2crng" rel="noreferrer">
+              <span>Tool</span>
+              <strong>sts2crng</strong>
+              <small>JavaScript</small>
             </a>
           </div>
         </div>
@@ -116,9 +151,25 @@
             <div class="music-toolbar">
               <label class="search-box">
                 <span>Search beats</span>
-                <input type="search" id="trackSearch" placeholder="Search title, mood, genre">
+                <input type="search" id="trackSearch" placeholder="Search title, year, key, BPM">
               </label>
-              <div class="filter-row" data-filter-row aria-label="Music filters"></div>
+              <div class="music-actions">
+                <button class="button primary" data-random-beat type="button">Random beat</button>
+                <button class="button ghost" data-show-archive type="button">Archive</button>
+                <button class="button ghost" data-clear-filters type="button">Clear filters</button>
+              </div>
+              <div class="filter-group">
+                <span>Year</span>
+                <div class="filter-row" data-year-filter aria-label="Year filters"></div>
+              </div>
+              <div class="filter-group">
+                <span>Key</span>
+                <div class="filter-row" data-key-filter aria-label="Key filters"></div>
+              </div>
+              <div class="filter-group">
+                <span>BPM</span>
+                <div class="filter-row" data-bpm-filter aria-label="BPM filters"></div>
+              </div>
             </div>
 
             <div class="player" data-player hidden>
@@ -132,32 +183,6 @@
 
             <div class="track-grid" data-track-grid></div>
             <button class="button load-more" data-load-more type="button" hidden>Load more</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="section-band code-section" id="code" aria-labelledby="code-title">
-        <div class="section-inner code-layout">
-          <div class="repo-preview reveal" data-repo-preview>
-            <div class="repo-topline">
-              <span class="repo-source">GitHub</span>
-              <span data-repo-updated>syncing</span>
-            </div>
-            <h2 id="code-title" data-repo-name>Latest repo</h2>
-            <p data-repo-description>Pulling the newest public work from GitHub.</p>
-            <div class="repo-meta">
-              <span data-repo-language>--</span>
-              <span data-repo-stars>0 stars</span>
-              <span data-repo-forks>0 forks</span>
-            </div>
-            <a class="button primary" data-repo-link href="https://github.com/" rel="noreferrer">Open repo</a>
-          </div>
-
-          <div class="code-window reveal" aria-label="Repository preview command">
-            <div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
-            <pre><code data-code-snippet>$ git clone https://github.com/username/latest.git
-$ cd latest
-$ npm run dev</code></pre>
           </div>
         </div>
       </section>
@@ -181,6 +206,7 @@ $ npm run dev</code></pre>
       <nav aria-label="Footer navigation">
         <a href="/sts2">STS2</a>
         <a href="#music">Music</a>
+        <a href="#projects">Projects</a>
         <a data-github-link href="https://github.com/" rel="noreferrer">GitHub</a>
       </nav>
     </footer>

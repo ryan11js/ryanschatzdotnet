@@ -4,15 +4,88 @@
   const state = {
     config: null,
     tracks: [],
-    visibleTracks: 0,
-    activeGenre: "all",
+    repos: [],
+    visibleTracks: 8,
     query: "",
+    year: "all",
+    key: "all",
+    bpm: "all",
+    musicMode: "featured",
     activeTrackId: null,
-    pageSize: 12
+    pageSize: 8
   };
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+
+  const fallbackConfig = {
+    site: {
+      name: "Ryan Schatz",
+      domain: "ryanschatz.net",
+      intro: "Code, beats, and small tools built to ship.",
+      footerLine: "ryanschatz.net"
+    },
+    social: {
+      github: {
+        username: "ryan11js",
+        url: "https://github.com/ryan11js"
+      }
+    },
+    githubPreview: {
+      excludeNames: ["ryan11js"],
+      websiteRepo: "ryanschatzdotnet",
+      pinned: [
+        {
+          name: "sts2crng",
+          title: "Slay the Spire 2 Tool",
+          category: "Tool",
+          projectUrl: "/sts2",
+          description: "Correlated randomness insight for Slay the Spire 2."
+        },
+        {
+          name: "beamng-playerguns",
+          title: "BeamNG Playerguns",
+          category: "Game Mod",
+          description: "Player guns for BeamNG Drive and BeamMP."
+        }
+      ]
+    },
+    music: {
+      pageSize: 8,
+      featuredLimit: 8,
+      displayCount: "1000+",
+      featuredSeeds: [
+        { year: 2026, number: 9 },
+        { year: 2026, number: 11 },
+        { year: 2026, number: 20 },
+        { year: 2026, number: 22 }
+      ],
+      bpmRanges: [
+        { label: "all", min: 0, max: 999 },
+        { label: "70-99", min: 70, max: 99 },
+        { label: "100-129", min: 100, max: 129 },
+        { label: "130-159", min: 130, max: 159 },
+        { label: "160+", min: 160, max: 999 }
+      ]
+    },
+    signalGraph: [
+      { label: "Frontend", value: 94 },
+      { label: "Audio", value: 88 },
+      { label: "Tools", value: 91 },
+      { label: "Systems", value: 84 }
+    ]
+  };
+
+  const demoTracks = [
+    { id: "2026-9", title: "2026 # 9", year: 2026, number: 9, key: "--", bpm: 0, src: "/media/beats/2026%20%23%209.mp3", tags: ["featured", "2026"], featured: true },
+    { id: "2026-11", title: "2026 # 11", year: 2026, number: 11, key: "--", bpm: 0, src: "/media/beats/2026%20%23%2011.mp3", tags: ["featured", "2026"], featured: true },
+    { id: "2026-20", title: "2026 # 20", year: 2026, number: 20, key: "--", bpm: 0, src: "/media/beats/2026%20%23%2020.mp3", tags: ["featured", "2026"], featured: true },
+    { id: "2026-22", title: "2026 # 22", year: 2026, number: 22, key: "--", bpm: 0, src: "/media/beats/2026%20%23%2022.mp3", tags: ["featured", "2026"], featured: true },
+    { id: "track-9", title: "Track 9", year: null, number: 9, key: "--", bpm: 0, src: "/media/beats/track%209.mp3", tags: ["archive"], featured: false },
+    { id: "track-11", title: "Track 11", year: null, number: 11, key: "--", bpm: 0, src: "/media/beats/track%2011.mp3", tags: ["archive"], featured: false },
+    { id: "track-20", title: "Track 20", year: null, number: 20, key: "--", bpm: 0, src: "/media/beats/track%2020.mp3", tags: ["archive"], featured: false },
+    { id: "track-22", title: "Track 22", year: null, number: 22, key: "--", bpm: 0, src: "/media/beats/track%2022.mp3", tags: ["archive"], featured: false }
+  ];
 
   const formatDate = (value) => {
     if (!value) return "syncing";
@@ -20,6 +93,13 @@
     if (Number.isNaN(date.getTime())) return "syncing";
     return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(date);
   };
+
+  const escapeHtml = (value) => String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 
   const slug = (value) => String(value || "")
     .toLowerCase()
@@ -50,45 +130,22 @@
     return response.json();
   };
 
-  const fallbackConfig = {
-    site: {
-      name: "Ryan Schatz",
-      domain: "ryanschatz.net",
-      intro: "Code, beats, and small tools built to ship.",
-      footerLine: "ryanschatz.net"
-    },
-    social: {
-      github: {
-        username: "ripco",
-        url: "https://github.com/ripco"
-      }
-    },
-    music: {
-      pageSize: 12,
-      filters: ["all", "trap", "r&b", "cinematic", "electronic", "experimental"]
-    },
-    signalGraph: [
-      { label: "Frontend", value: 94 },
-      { label: "Audio", value: 88 },
-      { label: "Tools", value: 91 },
-      { label: "Systems", value: 84 }
-    ]
-  };
-
-  const demoTracks = [
-    { id: "beat-001", title: "Beat 001", genre: "electronic", bpm: 142, key: "F min", duration: "2:18", mood: ["clean", "night"], src: "" },
-    { id: "beat-002", title: "Beat 002", genre: "trap", bpm: 156, key: "C min", duration: "2:42", mood: ["hard", "bright"], src: "" },
-    { id: "beat-003", title: "Beat 003", genre: "r&b", bpm: 92, key: "A min", duration: "3:04", mood: ["soft", "warm"], src: "" },
-    { id: "beat-004", title: "Beat 004", genre: "cinematic", bpm: 78, key: "D min", duration: "2:56", mood: ["wide", "tension"], src: "" },
-    { id: "beat-005", title: "Beat 005", genre: "experimental", bpm: 128, key: "G min", duration: "2:30", mood: ["glitch", "cold"], src: "" },
-    { id: "beat-006", title: "Beat 006", genre: "electronic", bpm: 118, key: "E min", duration: "3:12", mood: ["pulse", "late"], src: "" },
-    { id: "beat-007", title: "Beat 007", genre: "trap", bpm: 144, key: "B min", duration: "2:25", mood: ["dark", "snap"], src: "" },
-    { id: "beat-008", title: "Beat 008", genre: "r&b", bpm: 86, key: "F maj", duration: "3:22", mood: ["float", "clean"], src: "" }
-  ];
+  function mergeConfig(config) {
+    return {
+      ...fallbackConfig,
+      ...config,
+      site: { ...fallbackConfig.site, ...(config.site || {}) },
+      social: { ...fallbackConfig.social, ...(config.social || {}) },
+      githubPreview: { ...fallbackConfig.githubPreview, ...(config.githubPreview || {}) },
+      music: { ...fallbackConfig.music, ...(config.music || {}) },
+      signalGraph: config.signalGraph || fallbackConfig.signalGraph
+    };
+  }
 
   function applyConfig(config) {
     state.config = config;
     state.pageSize = Number(config.music?.pageSize || state.pageSize);
+    state.visibleTracks = state.pageSize;
 
     document.title = `${config.site?.name || "Ryan Schatz"} | Code, Beats, Tools`;
     $("[data-site-name]").textContent = config.site?.name || "Ryan Schatz";
@@ -101,54 +158,110 @@
       link.href = github.url || `https://github.com/${github.username || ""}`;
     });
 
-    renderFilters(config.music?.filters || fallbackConfig.music.filters);
     renderSkillGraph(config.signalGraph || fallbackConfig.signalGraph);
-  }
-
-  function renderFilters(filters) {
-    const row = $("[data-filter-row]");
-    if (!row) return;
-    row.innerHTML = "";
-    filters.forEach((filter) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = filter;
-      button.dataset.genre = filter;
-      button.className = filter === state.activeGenre ? "is-active" : "";
-      button.addEventListener("click", () => {
-        state.activeGenre = filter;
-        state.visibleTracks = state.pageSize;
-        renderTracks();
-        renderFilters(filters);
-      });
-      row.append(button);
-    });
   }
 
   function normalizeTrack(track, index) {
     const id = track.id || slug(`${track.title || "beat"}-${index}`);
+    const hasYear = track.year !== null && track.year !== undefined && track.year !== "";
+    const hasNumber = track.number !== null && track.number !== undefined && track.number !== "";
+    const year = hasYear && Number.isFinite(Number(track.year)) ? Number(track.year) : null;
+    const number = hasNumber && Number.isFinite(Number(track.number)) ? Number(track.number) : null;
+    const tags = Array.isArray(track.tags)
+      ? track.tags
+      : Array.isArray(track.mood)
+        ? track.mood
+        : [];
+
     return {
       id,
       title: track.title || `Beat ${String(index + 1).padStart(3, "0")}`,
-      genre: track.genre || "uncategorized",
-      bpm: Number(track.bpm || 0),
+      year,
+      number,
       key: track.key || "--",
-      duration: track.duration || "--",
-      mood: Array.isArray(track.mood) ? track.mood : [],
+      bpm: Number(track.bpm || 0),
       src: track.src || "",
+      tags,
+      featured: Boolean(track.featured),
       peaks: Array.isArray(track.peaks) && track.peaks.length ? track.peaks : seededPeaks(id)
     };
   }
 
+  function seedKey(seed) {
+    return `${Number(seed.year || 0)}-${Number(seed.number || 0)}`;
+  }
+
+  function trackSeedKey(track) {
+    return `${Number(track.year || 0)}-${Number(track.number || 0)}`;
+  }
+
+  function featuredTracks() {
+    const limit = Number(state.config?.music?.featuredLimit || 8);
+    const seeds = Array.isArray(state.config?.music?.featuredSeeds) ? state.config.music.featuredSeeds : [];
+    const selected = [];
+    const used = new Set();
+
+    seeds.forEach((seed) => {
+      const wanted = seedKey(seed);
+      const match = state.tracks.find((track) => trackSeedKey(track) === wanted);
+      if (match && !used.has(match.id)) {
+        selected.push(match);
+        used.add(match.id);
+      }
+    });
+
+    const pools = [
+      state.tracks.filter((track) => track.featured),
+      state.tracks.filter((track) => track.year === 2026),
+      state.tracks
+    ];
+
+    pools.forEach((pool) => {
+      pool.forEach((track) => {
+        if (selected.length >= limit) return;
+        if (!used.has(track.id)) {
+          selected.push(track);
+          used.add(track.id);
+        }
+      });
+    });
+
+    return selected.slice(0, limit);
+  }
+
+  function selectedBpmRange() {
+    const ranges = state.config?.music?.bpmRanges || fallbackConfig.music.bpmRanges;
+    return ranges.find((range) => range.label === state.bpm) || ranges[0];
+  }
+
+  function criteriaActive() {
+    return state.query.trim() || state.year !== "all" || state.key !== "all" || state.bpm !== "all" || state.musicMode === "archive";
+  }
+
   function filteredTracks() {
     const query = state.query.trim().toLowerCase();
+    const range = selectedBpmRange();
     return state.tracks.filter((track) => {
-      const genreMatch = state.activeGenre === "all" || track.genre.toLowerCase() === state.activeGenre.toLowerCase();
-      if (!genreMatch) return false;
+      if (state.year !== "all" && String(track.year || "unknown") !== state.year) return false;
+      if (state.key !== "all" && String(track.key || "--").toLowerCase() !== state.key.toLowerCase()) return false;
+      if (range && range.label !== "all") {
+        if (!track.bpm || track.bpm < range.min || track.bpm > range.max) return false;
+      }
       if (!query) return true;
-      const haystack = [track.title, track.genre, track.key, ...(track.mood || [])].join(" ").toLowerCase();
+      const haystack = [
+        track.title,
+        track.year,
+        track.number ? `# ${track.number}` : "",
+        track.key,
+        track.bpm ? `${track.bpm} bpm` : "",
+        ...(track.tags || [])
+      ].join(" ").toLowerCase();
       return haystack.includes(query);
     });
+  }
+
+  function currentTracks() {
+    return criteriaActive() ? filteredTracks() : featuredTracks();
   }
 
   function renderMusicStats(tracks) {
@@ -166,20 +279,69 @@
     const chart = $("[data-genre-chart]");
     if (!chart) return;
     const counts = tracks.reduce((acc, track) => {
-      acc[track.genre] = (acc[track.genre] || 0) + 1;
+      const label = track.year ? String(track.year) : "archive";
+      acc[label] = (acc[label] || 0) + 1;
       return acc;
     }, {});
     const maxCount = Math.max(1, ...Object.values(counts));
     chart.innerHTML = Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
+      .sort((a, b) => Number(b[0]) - Number(a[0]) || b[1] - a[1])
       .slice(0, 6)
-      .map(([genre, value]) => `
+      .map(([label, value]) => `
         <div class="genre-bar">
-          <span>${genre}</span>
+          <span>${escapeHtml(label)}</span>
           <i style="--scale:${value / maxCount}"></i>
           <b>${value}</b>
         </div>
       `).join("");
+  }
+
+  function renderFilterButtons(root, items, active, onClick) {
+    if (!root) return;
+    root.innerHTML = "";
+    items.forEach((item) => {
+      const value = String(item.value);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = item.label;
+      button.className = value === active ? "is-active" : "";
+      button.addEventListener("click", () => onClick(value));
+      root.append(button);
+    });
+  }
+
+  function renderMusicFilters() {
+    const years = Array.from(new Set(state.tracks.map((track) => track.year).filter(Boolean)))
+      .sort((a, b) => b - a)
+      .map((year) => ({ value: year, label: String(year) }));
+    const keys = Array.from(new Set(state.tracks.map((track) => track.key).filter((key) => key && key !== "--")))
+      .sort((a, b) => a.localeCompare(b))
+      .map((key) => ({ value: key, label: key }));
+    const ranges = state.config?.music?.bpmRanges || fallbackConfig.music.bpmRanges;
+
+    renderFilterButtons($("[data-year-filter]"), [{ value: "all", label: "all" }, ...years], state.year, (value) => {
+      state.year = value;
+      state.musicMode = "archive";
+      state.visibleTracks = state.pageSize;
+      renderTracks();
+      renderMusicFilters();
+    });
+
+    renderFilterButtons($("[data-key-filter]"), [{ value: "all", label: "all" }, ...keys], state.key, (value) => {
+      state.key = value;
+      state.musicMode = "archive";
+      state.visibleTracks = state.pageSize;
+      renderTracks();
+      renderMusicFilters();
+    });
+
+    renderFilterButtons($("[data-bpm-filter]"), ranges.map((range) => ({ value: range.label, label: range.label })), state.bpm, (value) => {
+      state.bpm = value;
+      state.musicMode = "archive";
+      state.visibleTracks = state.pageSize;
+      renderTracks();
+      renderMusicFilters();
+    });
   }
 
   function renderTracks() {
@@ -187,33 +349,39 @@
     const more = $("[data-load-more]");
     if (!grid || !more) return;
 
-    const tracks = filteredTracks();
+    const tracks = currentTracks();
     const visible = tracks.slice(0, state.visibleTracks);
     grid.innerHTML = visible.map((track) => {
       const levels = track.peaks.slice(0, 18).map((peak) => `<i style="--level:${Math.max(0.12, Math.min(1, peak))}"></i>`).join("");
       const disabled = track.src ? "" : "disabled";
       const label = track.src ? (state.activeTrackId === track.id ? "Pause" : "Play") : "No audio file for";
+      const meta = [
+        track.year || "archive",
+        track.number ? `#${track.number}` : "",
+        track.key && track.key !== "--" ? track.key : "",
+        track.bpm ? `${track.bpm} bpm` : ""
+      ].filter(Boolean).join(" ");
+
       return `
-        <article class="track-card ${state.activeTrackId === track.id ? "is-active" : ""}" data-track-id="${track.id}">
+        <article class="track-card ${state.activeTrackId === track.id ? "is-active" : ""}" data-track-id="${escapeHtml(track.id)}">
           <div class="track-info">
-            <strong title="${track.title}">${track.title}</strong>
+            <strong title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</strong>
             <div class="track-meta">
-              <span>${track.genre}</span>
-              <span>${track.bpm || "--"} bpm</span>
-              <span>${track.key}</span>
-              <span>${track.duration}</span>
+              <span>${escapeHtml(meta || "metadata pending")}</span>
             </div>
             <div class="waveform" aria-hidden="true">${levels}</div>
           </div>
-          <button class="play-button" type="button" ${disabled} aria-label="${label} ${track.title}" data-play="${track.id}">${track.src ? (state.activeTrackId === track.id ? "II" : ">" ) : "+"}</button>
+          <button class="play-button" type="button" ${disabled} aria-label="${escapeHtml(label)} ${escapeHtml(track.title)}" data-play="${escapeHtml(track.id)}">${track.src ? (state.activeTrackId === track.id ? "II" : ">" ) : "+"}</button>
         </article>
       `;
     }).join("");
 
     more.hidden = tracks.length <= state.visibleTracks;
     more.onclick = () => {
+      state.musicMode = "archive";
       state.visibleTracks += state.pageSize;
       renderTracks();
+      renderMusicFilters();
     };
 
     $$("[data-play]").forEach((button) => {
@@ -242,6 +410,13 @@
     renderTracks();
   }
 
+  function randomBeat() {
+    const candidates = currentTracks().filter((track) => track.src);
+    if (!candidates.length) return;
+    const index = Math.floor(Math.random() * candidates.length);
+    playTrack(candidates[index].id);
+  }
+
   async function loadMusic() {
     let payload;
     try {
@@ -258,7 +433,154 @@
     state.tracks = tracks.map(normalizeTrack);
     state.visibleTracks = state.pageSize;
     renderMusicStats(state.tracks);
+    renderMusicFilters();
     renderTracks();
+  }
+
+  function compactRepo(repo, config = state.config) {
+    const pinned = (config?.githubPreview?.pinned || []).find((item) => item.name === repo.name) || {};
+    const websiteRepo = config?.githubPreview?.websiteRepo;
+    return {
+      name: repo.name,
+      title: pinned.title || repo.title || repo.name || "Latest repo",
+      category: pinned.category || repo.category || (repo.name === websiteRepo ? "Website" : "Repo"),
+      description: pinned.description || repo.description || "Public repository preview.",
+      html_url: repo.html_url || repo.url || "https://github.com/ryan11js",
+      project_url: pinned.projectUrl || repo.project_url || repo.html_url || repo.url || "https://github.com/ryan11js",
+      clone_url: repo.clone_url || `${repo.html_url || repo.url}.git`,
+      language: repo.language || "Code",
+      stargazers_count: repo.stargazers_count || 0,
+      forks_count: repo.forks_count || 0,
+      updated_at: repo.pushed_at || repo.updated_at,
+      isWebsiteRepo: repo.name === websiteRepo || Boolean(repo.isWebsiteRepo)
+    };
+  }
+
+  function fallbackRepos(config) {
+    return [
+      compactRepo({
+        name: "sts2crng",
+        description: "A tool to provide insight into Correlated Randomness in Slay the Spire 2",
+        html_url: "https://github.com/ryan11js/sts2crng",
+        clone_url: "https://github.com/ryan11js/sts2crng.git",
+        language: "JavaScript",
+        updated_at: new Date().toISOString()
+      }, config),
+      compactRepo({
+        name: "beamng-playerguns",
+        description: "A mod to add Player Guns into BeamNG Drive working with Beam MP multiplayer.",
+        html_url: "https://github.com/ryan11js/beamng-playerguns",
+        clone_url: "https://github.com/ryan11js/beamng-playerguns.git",
+        language: "Lua",
+        updated_at: new Date().toISOString()
+      }, config),
+      compactRepo(config.githubPreview?.fallbackRepo || {
+        name: "ryanschatzdotnet",
+        description: "Repo for landing page of my website RyanSchatz.net",
+        html_url: "https://github.com/ryan11js/ryanschatzdotnet",
+        clone_url: "https://github.com/ryan11js/ryanschatzdotnet.git",
+        language: "JavaScript",
+        updated_at: new Date().toISOString()
+      }, config)
+    ];
+  }
+
+  async function loadGithubPreview(config) {
+    let payload;
+    try {
+      payload = await loadJson("/api/github.php");
+    } catch (error) {
+      try {
+        const username = config.social?.github?.username;
+        const repos = await loadJson(`https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100`);
+        payload = { repos };
+      } catch (githubError) {
+        payload = { repos: fallbackRepos(config), source: "fallback" };
+      }
+    }
+
+    const rawRepos = Array.isArray(payload.repos)
+      ? payload.repos
+      : payload.repo
+        ? [payload.repo]
+        : fallbackRepos(config);
+
+    const excluded = new Set(config.githubPreview?.excludeNames || []);
+    const repos = rawRepos
+      .filter((repo) => repo && repo.name && !repo.fork && !repo.archived && !excluded.has(repo.name))
+      .map((repo) => compactRepo(repo, config));
+
+    const featured = Array.isArray(payload.featured) && payload.featured.length
+      ? payload.featured.map((repo) => compactRepo(repo, config))
+      : (config.githubPreview?.pinned || []).map((pin) => repos.find((repo) => repo.name === pin.name) || compactRepo(pin, config));
+
+    const latest = payload.latest
+      ? compactRepo(payload.latest, config)
+      : repos.find((repo) => !repo.isWebsiteRepo) || repos[0] || featured[0] || fallbackRepos(config)[0];
+
+    state.repos = repos;
+    renderProjects({ repos, featured, latest });
+  }
+
+  function visualClass(repo) {
+    const name = `${repo.name} ${repo.category}`.toLowerCase();
+    if (name.includes("sts") || name.includes("spire")) return "relic-grid";
+    if (name.includes("beam") || name.includes("mod")) return "code-lines";
+    return "mini-wave";
+  }
+
+  function renderFeaturedProjects(projects) {
+    const root = $("[data-featured-projects]");
+    if (!root) return;
+    const cards = projects.slice(0, 3);
+    root.innerHTML = cards.map((project) => {
+      const visual = visualClass(project);
+      const bits = visual === "mini-wave"
+        ? "<i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>"
+        : "<i></i><i></i><i></i><i></i><i></i><i></i>";
+      return `
+        <a class="surface-card reveal is-visible" href="${escapeHtml(project.project_url || project.html_url)}" rel="noreferrer">
+          <span class="surface-label">${escapeHtml(project.category)}</span>
+          <strong>${escapeHtml(project.title)}</strong>
+          <span class="surface-description">${escapeHtml(project.description)}</span>
+          <span class="surface-visual ${visual}" aria-hidden="true">${bits}</span>
+        </a>
+      `;
+    }).join("");
+  }
+
+  function renderRepoGrid(repos) {
+    const root = $("[data-repo-grid]");
+    if (!root) return;
+    root.innerHTML = repos.map((repo) => `
+      <a class="repo-card" href="${escapeHtml(repo.html_url)}" rel="noreferrer">
+        <span>${escapeHtml(repo.category)}</span>
+        <strong>${escapeHtml(repo.name)}</strong>
+        <small>${escapeHtml(repo.language || "Code")} / ${formatDate(repo.updated_at)}</small>
+      </a>
+    `).join("");
+  }
+
+  function renderProjects(payload) {
+    renderFeaturedProjects(payload.featured || []);
+    renderRepo(payload.latest);
+    renderRepoGrid(payload.repos || []);
+  }
+
+  function renderRepo(repo) {
+    if (!repo) return;
+    $("[data-repo-name]").textContent = repo.title || repo.name || "Latest project";
+    $("[data-repo-description]").textContent = repo.description || "Public repository preview.";
+    $("[data-repo-language]").textContent = repo.language || "Code";
+    $("[data-repo-stars]").textContent = `${repo.stargazers_count || 0} stars`;
+    $("[data-repo-forks]").textContent = `${repo.forks_count || 0} forks`;
+    $("[data-repo-updated]").textContent = formatDate(repo.updated_at);
+    $("[data-repo-link]").href = repo.project_url || repo.html_url || "https://github.com/ryan11js";
+    $("[data-code-snippet]").textContent = [
+      `$ git clone ${repo.clone_url || repo.html_url || "https://github.com/ryan11js/repo.git"}`,
+      `$ cd ${repo.name || "repo"}`,
+      repo.project_url && repo.project_url.startsWith("/") ? `$ open ${repo.project_url}` : "$ code ."
+    ].join("\n");
   }
 
   function renderSkillGraph(rows) {
@@ -268,76 +590,12 @@
       const value = Math.max(0, Math.min(100, Number(row.value || 0)));
       return `
         <div class="skill-row">
-          <strong>${row.label}</strong>
+          <strong>${escapeHtml(row.label)}</strong>
           <i style="--value:${value / 100}"></i>
           <span>${value}%</span>
         </div>
       `;
     }).join("");
-  }
-
-  function fallbackRepo(config) {
-    return config.githubPreview?.fallbackRepo || {
-      name: "latest-project",
-      description: "Newest public repository preview.",
-      html_url: config.social?.github?.url || "https://github.com/",
-      clone_url: `${config.social?.github?.url || "https://github.com/user"}/latest-project.git`,
-      language: "Code",
-      stargazers_count: 0,
-      forks_count: 0,
-      updated_at: new Date().toISOString()
-    };
-  }
-
-  function compactRepo(repo) {
-    return {
-      name: repo.name,
-      description: repo.description || "Public repository preview.",
-      html_url: repo.html_url,
-      clone_url: repo.clone_url || `${repo.html_url}.git`,
-      language: repo.language || "Code",
-      stargazers_count: repo.stargazers_count || 0,
-      forks_count: repo.forks_count || 0,
-      updated_at: repo.pushed_at || repo.updated_at
-    };
-  }
-
-  async function loadGithubPreview(config) {
-    let repo;
-    try {
-      const payload = await loadJson("/api/github.php");
-      repo = payload.repo || payload;
-    } catch (error) {
-      const username = config.social?.github?.username;
-      if (username) {
-        try {
-          const repos = await loadJson(`https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=20`);
-          repo = repos.find((item) => !item.fork && !item.archived) || repos[0];
-        } catch (githubError) {
-          repo = fallbackRepo(config);
-        }
-      } else {
-        repo = fallbackRepo(config);
-      }
-    }
-
-    renderRepo(compactRepo(repo || fallbackRepo(config)));
-  }
-
-  function renderRepo(repo) {
-    $("[data-repo-name]").textContent = repo.name || "Latest repo";
-    $("[data-repo-description]").textContent = repo.description || "Public repository preview.";
-    $("[data-repo-language]").textContent = repo.language || "Code";
-    $("[data-repo-stars]").textContent = `${repo.stargazers_count || 0} stars`;
-    $("[data-repo-forks]").textContent = `${repo.forks_count || 0} forks`;
-    $("[data-repo-updated]").textContent = formatDate(repo.updated_at);
-    $("[data-repo-link]").href = repo.html_url || "https://github.com/";
-    $("[data-code-snippet]").textContent = [
-      `$ git clone ${repo.clone_url || repo.html_url || "https://github.com/username/repo.git"}`,
-      `$ cd ${repo.name || "repo"}`,
-      "$ code .",
-      "$ git status --short"
-    ].join("\n");
   }
 
   function wirePlayerProgress() {
@@ -359,9 +617,36 @@
     if (!input) return;
     input.addEventListener("input", () => {
       state.query = input.value;
+      state.musicMode = input.value.trim() ? "archive" : state.musicMode;
       state.visibleTracks = state.pageSize;
       renderTracks();
     });
+  }
+
+  function clearMusicFilters() {
+    state.query = "";
+    state.year = "all";
+    state.key = "all";
+    state.bpm = "all";
+    state.musicMode = "featured";
+    state.visibleTracks = state.pageSize;
+    const input = $("#trackSearch");
+    if (input) input.value = "";
+    renderMusicFilters();
+    renderTracks();
+  }
+
+  function showArchive() {
+    state.musicMode = "archive";
+    state.visibleTracks = state.pageSize;
+    renderMusicFilters();
+    renderTracks();
+  }
+
+  function wireMusicActions() {
+    $("[data-random-beat]")?.addEventListener("click", randomBeat);
+    $("[data-clear-filters]")?.addEventListener("click", clearMusicFilters);
+    $("[data-show-archive]")?.addEventListener("click", showArchive);
   }
 
   function wireReveal() {
@@ -486,15 +771,13 @@
         config = fallbackConfig;
       }
     }
-    config = { ...fallbackConfig, ...config };
-    config.site = { ...fallbackConfig.site, ...(config.site || {}) };
-    config.social = { ...fallbackConfig.social, ...(config.social || {}) };
-    config.music = { ...fallbackConfig.music, ...(config.music || {}) };
 
+    config = mergeConfig(config);
     applyConfig(config);
     wireHeader();
     wireReveal();
     wireSearch();
+    wireMusicActions();
     wirePlayerProgress();
     bootSignalCanvas();
     await Promise.all([loadMusic(), loadGithubPreview(config)]);

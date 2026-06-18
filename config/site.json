@@ -8,19 +8,36 @@
   },
   "social": {
     "github": {
-      "username": "ripco",
-      "url": "https://github.com/ripco"
+      "username": "ryan11js",
+      "url": "https://github.com/ryan11js"
     }
   },
   "githubPreview": {
     "enabled": true,
     "excludeForks": true,
     "excludeArchived": true,
+    "excludeNames": ["ryan11js"],
+    "websiteRepo": "ryanschatzdotnet",
+    "pinned": [
+      {
+        "name": "sts2crng",
+        "title": "Slay the Spire 2 Tool",
+        "category": "Tool",
+        "projectUrl": "/sts2",
+        "description": "Correlated randomness insight for Slay the Spire 2."
+      },
+      {
+        "name": "beamng-playerguns",
+        "title": "BeamNG Playerguns",
+        "category": "Game Mod",
+        "description": "Player guns for BeamNG Drive and BeamMP."
+      }
+    ],
     "fallbackRepo": {
-      "name": "portfolio-site",
-      "description": "Clean portfolio, beat archive, and live project surface.",
-      "html_url": "https://github.com/ripco",
-      "clone_url": "https://github.com/ripco/portfolio-site.git",
+      "name": "ryanschatzdotnet",
+      "description": "Repo for landing page of my website RyanSchatz.net",
+      "html_url": "https://github.com/ryan11js/ryanschatzdotnet",
+      "clone_url": "https://github.com/ryan11js/ryanschatzdotnet.git",
       "language": "JavaScript",
       "stargazers_count": 0,
       "forks_count": 0,
@@ -29,11 +46,24 @@
   },
   "music": {
     "catalogUrl": "/content/music/catalog.json",
-    "audioBasePath": "/content/music/audio/",
+    "audioBasePath": "/media/beats/",
     "autoScanAudio": true,
     "displayCount": "1000+",
-    "pageSize": 12,
-    "filters": ["all", "trap", "r&b", "cinematic", "electronic", "experimental"]
+    "pageSize": 8,
+    "featuredLimit": 8,
+    "featuredSeeds": [
+      { "year": 2026, "number": 9 },
+      { "year": 2026, "number": 11 },
+      { "year": 2026, "number": 20 },
+      { "year": 2026, "number": 22 }
+    ],
+    "bpmRanges": [
+      { "label": "all", "min": 0, "max": 999 },
+      { "label": "70-99", "min": 70, "max": 99 },
+      { "label": "100-129", "min": 100, "max": 129 },
+      { "label": "130-159", "min": 130, "max": 159 },
+      { "label": "160+", "min": 160, "max": 999 }
+    ]
   },
   "signalGraph": [
     { "label": "Frontend", "value": 94 },
